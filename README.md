@@ -1,8 +1,8 @@
-## YOLOR 自定义数据集训练模型
+## YOLOR Training with cusstom dataset
 
 ![](figure/unifued_network.png)
 
-感谢大佬[WongKinYiu](https://github.com/WongKinYiu/yolor)大佬的开源，其关于Pytorch版的YOLO v4和Scaled-YOLOv4也是相当不错！
+Thanks to Wong Kin Yiu [WongKinYiu](https://github.com/WongKinYiu/yolor) His code is open source, also his Pytorch versions of YOLOv4 and Scaled-YOLOv4 are quite good!
 
 + GitHub: https://github.com/WongKinYiu/yolor
 
@@ -12,30 +12,29 @@
 
 ![](figure/performance.png)
 
-我们将从下面几个部分详细介绍如何基于自定义的数据集训练自己的YOLOR模型，并基于TensorRT提供C++版本的TensorRT YOLOR的部署方案。
+We will tell you how to train your own YOLOR models based on custom datasets in the following sections, and provide a deployment solution for the C++ version of YOLOR based on TensorRT.
 
-+ 安装YOLOR的的依赖环境
-+ 创建自己的YOLOR目标检测的数据集
-+ 准备YOLOR的预训练模型
-+ YOLOR的模型训练
-+ YOLOR模型的推断（基于图像和视频）
-+ 基于YOLOR的TensorRT C++ 代码实现
++ Install the YOLOR dependency environment
++ Create your own dataset for YOLOR target detection
++ Prepare YOLOR pre-trained models
++ YOLOR model training
++ Object detection with YOLOR models (image and video based)
++ C++ code implementation of YOLOR-based TensorRT
 
-### 1.安装YOLOR的依赖环境
+### 1. Install the YOLOR dependency environment
 
-基于Docker创建YOLOR的镜像，这也是作者推荐的方式，这里假设读者已经安装好了Docker和nvidia-docker2,该方式仅在Linux下工作，因为nvidia-docker2仅在Linux下工作，如果你是windows系统建议你通过虚拟机的方式或直接在windows host下安装下述环境
+Uses Docker to create the YOLOR image, which is also the author's recommended way,  assumes that the reader has installed Docker and nvidia-docker2. Only works under Linux, because nvidia-docker2 only works under Linux, if you are a windows system is recommended that you install the following environment by way of virtual machine or directly under the windows host.
 
 ```shell
-# 创建docker容器，这里假设你已经安装了docker和nvidia-docker2
+# create docker env with nvidia-docker2
 docker pull nvcr.io/nvidia/pytorch:20.11-py3
 nvidia-docker run --name yolor -it -v your_coco_path/:/coco/ -v your_code_path/:/yolor --shm-size=64g nvcr.io/nvidia/pytorch:20.11-py3
 # sudo nvidia-docker run --name yolor -it --shm-size=64g nvcr.io/nvidia/pytorch:20.11-py3
 
-# 在容器内apt install required packages
+#  install required packages in countainer
 apt update
 apt install -y zip htop screen libgl1-mesa-glx
 
-# 在容器内pip install required packages
 pip install seaborn thop
 pip install nvidia-pyindex
 pip install onnx-graphsurgeon
@@ -60,32 +59,28 @@ pip install .
 cd /yolor
 
 ```
+### 2. Create your own YOLOR  dataset
 
-
-
-### 2.创建自己的YOLOR目标检测数据集
-
-YOLOR支持YOLOv5类型的标注数据构建，如果你熟悉YOLOv5的训练集的构造过程，该部分可以直接跳过，这里我们提供了构建数据集的代码，将数据集存放在`./datasets`下：
+YOLOR supports YOLOv5  annotated data, if you are familiar with the creation of YOLOv5 training set, this part can be skipped, here we provide the code to build the dataset, store the dataset in `. /datasets` under.
 
 ```shell
-./datasets/score   # 存放的文件，score是数据集的名称
-├─images           # 训练图像，每个文件夹下存放了具体的训练图像
+./datasets/score   
+├─images           # Training images, with training and evaluation images stored under each folder
 │  ├─train
 │  └─val
-└─labels           # label，每个文件夹下存放了具体的txt标注文件，格式满足YOLOv5
+└─labels           # label，each folder holds txt annotation files in YOLOv5 format
     ├─train
     └─val
 ```
 
-我们提供了VOC标注数据格式转换为YOLOv5标注的具体代码，存放在`./datasets`下，关于YOLOv5的标注细节可以参考：<https://github.com/DataXujing/YOLO-v5>
+Code for converting VOC annotation data format to YOLOv5 annotation, which is stored in `. /datasets`, for details on YOLOv5 annotation you can refer to: <https://github.com/DataXujing/YOLO-v5>
 
 
+### 3. Prepare the pre-training model for YOLOR
 
-### 3.准备YOLOR的预训练模型
++ 1. Modify the model's configuration file
 
-+ 1.修改模型的配置文件
-
-i. 训练数据的配置`./data/score.yaml`
+i. YAML of training data `. /data/score.yaml`
 
 ```shell
 train: ./datasets/score/images/train/
@@ -97,9 +92,9 @@ nc: 3
 names: ['QP', 'NY', 'QG']
 ```
 
-ii.模型结构的配置
+ii. config of model structure 
 
-我们以训练YOLOR-P6，需要修改模型的配置文件，其修改方式类似于darkent版的YOLOv3,期主要修改的参数在模型的head部分，详细的参考`./cfg/yolor_p6_score.cfg`,其主要修改部分我已经标注出来，如下：
+We train YOLOR-P6, we need to modify the configuration file of the model, its modification is similar to the darkent version of YOLOv3, the main modified parameters in the head part of the model, detailed reference `. /cfg/yolor_p6_score.cfg`, whose main modification part is as follows.
 
 ```shell
 # ============ End of Neck ============ #
@@ -325,7 +320,7 @@ beta_nms=0.6
 
 ```
 
-+ 2.预训练模型的下载
++ 2. Download the pre-trained models
 
 To reproduce the results in the paper, please use this branch.
 
@@ -357,7 +352,7 @@ To reproduce the results in the paper, please use this branch.
 | **YOLOR-S<sup>4</sup>**<sub>DWT</sub> |    640    |    **37.0%**     |           **55.3%**           |           **39.9%**           |          **18.4%**           |          **41.9%**           |          **51.0%**           |  16G  | [weights](https://drive.google.com/file/d/1IZ1ix1hwUjEMcCMpl67CHQp98XOjcIsv/view?usp=sharing) |
 |                                       |           |                  |                               |                               |                              |                              |                              |       |                                                              |
 
-需要注意的是上述表格中的预训练模型下载地址对应了作者paper中的结果，不能加载在本项目的训练中，如果使用本项目需要在训练时加载预训练模型下载如下链接：
+It should be noted that the pre-training model download address in the above table corresponds to the results in the author's paper, which cannot be loaded in the training of this project, if you use this project need to load the pre-training model during training download the following link.
 
 ```shell
 # YOLOR-P6:
@@ -381,25 +376,25 @@ https://drive.google.com/file/d/1NbMG3ivuBQ4S8kEhFJ0FIqOQXevGje_w/view?usp=shari
 
 
 
-### 4.模型训练
+### 4. Model training
 
-训练的主要参数：
+The main params：
 
-- **img:** 输入图像的size
-- **batch:** 训练的batch size
-- **epochs:** 训练的周期
-- **data:** yaml配置文件路径
-- **cfg:** 模型的配置文件
-- **weights:** 预训练模型的加载路径
+- **img:** iamge px size
+- **batch:** batch size
+- **epochs:** cycle time 
+- **data:** yaml config file path
+- **cfg:** model profile
+- **weights:** path for pre-trained model weights
 - **name:** result names
-- **hyp:** 训练的超参数
+- **hyp:** hyper params
 
 ```shell
 python train.py --batch-size 8 --img 1280 1280 --data './data/score.yaml' --cfg cfg/yolor_p6_score.cfg --weights './pretrain/yolor-p6.pt' --device 0 --name yolor_p6 --hyp './data/hyp.scratch.1280.yaml' --epochs 300
-# 为了验证过程的可行性，我们仅训练了50个epoch！！！
+# To verify the feasibility of the process, we trained only 50 epochs!!!
 ```
 
-查看模型的训练过程：
+view training progress：
 
 ```shell
 tensorboard --logdir "./yolor_p6" --host 0.0.0.0
@@ -407,19 +402,19 @@ tensorboard --logdir "./yolor_p6" --host 0.0.0.0
 
 ![](figure/tensorboard.png)
 
-训练结果：
+Results of training：
 
 ![](figure/results.png)
 
-### 5.模型推断
+### 5. object detection
 
-为了方便测试和部署，基于`detect.py`我们实现了图像和视频的测试代码，分别存放在`test_img.py`和`test_video.py`,其调用方式为：
+To facilitate testing and deployment, based on `detect.py` we implemented the test code for images and videos, which are stored in `test_img.py` and `test_video.py`, respectively, and are called as follow
 
 ```shell
-# 图像推断
+# image object detection
 python test_img.py
 
-# 视频推断
+# video object detection
 python test_video.py
 ```
 
@@ -429,13 +424,12 @@ demo:
 
 
 
-### 6.TensorRT C++实现
+### 6.TensorRT C++ impelmentation
 
-1.模型转ONNX
+1.Convert model to ONNX
 
 ```shell
   python convert_to_onnx.py --weights ./runs/train/yolor_p6/weights/best_overall.pt --cfg cfg/yolor_p6_score.cfg --output yolor_p6.onnx
 ```
 
-**TODO**: 因SILU激活函数在Pytorch中目前无法转换到ONNX,在ONNX转换的过程中就出现了问题，我们会在稍后花时间解决该问题。
-
+**TODO**: The SILU activation function cannot be converted to ONNX in Pytorch  will spend time to solve the problem later.
